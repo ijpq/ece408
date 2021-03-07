@@ -1,8 +1,13 @@
 // MP 1
-#include	<wb.h>
+#include	"wb.h"
 
 __global__ void vecAdd(float * in1, float * in2, float * out, int len) {
     //@@ Insert code to implement vector addition here
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid >= len)
+        return;
+    out[tid] = in1[tid] + in2[tid];
+    return ;
 }
 
 int main(int argc, char ** argv) {
@@ -24,37 +29,51 @@ int main(int argc, char ** argv) {
     wbTime_stop(Generic, "Importing data and creating memory on host");
 
     wbLog(TRACE, "The input length is ", inputLength);
+    
+    size_t alloc_size = sizeof(float)*inputLength;
 
 	wbTime_start(GPU, "Allocating GPU memory.");
     //@@ Allocate GPU memory here
-
+    cudaMalloc(&deviceInput1, alloc_size);
+    cudaMalloc(&deviceInput2, alloc_size);
+    cudaMalloc(&deviceOutput, alloc_size);
 
     wbTime_stop(GPU, "Allocating GPU memory.");
 
     wbTime_start(GPU, "Copying input memory to the GPU.");
     //@@ Copy memory to the GPU here
-
+    cudaMemcpy(deviceInput1, hostInput1, alloc_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(deviceInput2, hostInput2, alloc_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(deviceOutput, hostOutput, alloc_size, cudaMemcpyHostToDevice);
 
     wbTime_stop(GPU, "Copying input memory to the GPU.");
     
     //@@ Initialize the grid and block dimensions here
+    int size_block = 1024;
+    int size_grid = (inputLength+size_block-1)/size_block;
+    dim3 block(size_block, 1);
+    dim3 grid(size_grid, 1);
 
-
-    
     wbTime_start(Compute, "Performing CUDA computation");
     //@@ Launch the GPU Kernel here
+    vecAdd<<<grid, block>>>(deviceInput1, deviceInput2, deviceOutput, inputLength);    
 
     cudaThreadSynchronize();
     wbTime_stop(Compute, "Performing CUDA computation");
     
     wbTime_start(Copy, "Copying output memory to the CPU");
     //@@ Copy the GPU memory back to the CPU here
+    cudaMemcpy(hostInput1, deviceInput1, alloc_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(hostInput2, deviceInput2, alloc_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(hostOutput, deviceOutput, alloc_size, cudaMemcpyDeviceToHost);
 
     wbTime_stop(Copy, "Copying output memory to the CPU");
 
     wbTime_start(GPU, "Freeing GPU Memory");
     //@@ Free the GPU memory here
-
+    cudaFree(deviceInput1);
+    cudaFree(deviceInput2);
+    cudaFree(deviceOutput);
 
     wbTime_stop(GPU, "Freeing GPU Memory");
 
