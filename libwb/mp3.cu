@@ -26,9 +26,12 @@ __global__ void matrixMultiplyShared(float * A, float * B, float * C,
     float p_value = 0;
     for (int phase = 0; phase < (numAColumns/TILE_WIDTH) ; phase++) {
         Ads[threadIdx.y][threadIdx.x] = A[row*numAColumns + phase*TILE_WIDTH + threadIdx.x];
-        Bds[threadIdx.x][threadIdx.y] = B[(phase*TILE_WIDTH+threadIdx.x)*numBColumns + row];
-        //Bds[threadIdx.y][threadIdx.x] = B[row*numBColumns+phase*TILE_WIDTH+threadIdx.x];
-        //Ads[threadIdx.x][threadIdx.y] = A[(phase*TILE_WIDTH+threadIdx.x)*numAColumns+row];
+
+        // dont know why this occurs error
+        // Bds[threadIdx.x][threadIdx.y] = B[(phase*TILE_WIDTH+threadIdx.x)*numBColumns + row];
+
+        // as long as the impl of Bds is changed to this line below, there is only one testdata cannot be passed.
+        Bds[threadIdx.y][threadIdx.x] = B[(phase*TILE_WIDTH+threadIdx.y)*numBColumns+col];
         
         //this is wrong answer. iterate it self for check. i learned a lot from iterative checking.
         //Ads[threadIdx.x][threadIdx.y] = A[phase*TILE_WIDTH + col*numAColumns + threadIdx.y];
@@ -38,8 +41,8 @@ __global__ void matrixMultiplyShared(float * A, float * B, float * C,
         // threads starts parallel again.
         for (int k=0; k<TILE_WIDTH;k++) {
             p_value += Ads[threadIdx.y][k] * Bds[k][threadIdx.x]; // each thread has it own p_value in register.
-        __syncthreads();
         }
+        __syncthreads();
     }
     C[row*numCColumns + col] = p_value;
   //__shared__ float tileM[TILE_WIDTH][TILE_WIDTH];
